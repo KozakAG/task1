@@ -2,53 +2,68 @@
 
 install_app(){
 
-	sudo yum update -y
-	sudo yum install mc -y
-	sudo setenforce 0
-	sudo rpm -Uvh http://rpms.famillecollet.com/enterprise/remi-release-7.rpm
-	sudo rpm -Uvh http://repo.mysql.com/mysql-community-release-el7-7.noarch.rpm
-	sudo yum --enablerepo=remi-php72 install php php-mysql php-xml php-soap php-xmlrpc php-mbstring php-json php-gd \
-		 php-mcrypt php72-php-fpm php72-php-gd php72-php-json php72-php-mbstring php72-php-mysqlnd -y
-	sudo yum-config-manager --enable remi-php72
-	sudo yum install git -y
-	sudo yum install httpd -y
-	sudo systemctl enable httpd
+yum install -y mc
+yum install yum-utils -y
+yum install -y git
+yum install -y wget
+yum install -y unzip
+
+
+yum install -y httpd
+systemctl start  httpd
+systemctl enable httpd
+
+yum install -y http://rpms.remirepo.net/enterprise/remi-release-7.rpm
+yum-config-manager --enable remi-php73
+yum install -y epel-release
+yum install -y php php-zip php-gd php-intl php-mbstring php-soap php-xmlrpc php-pgsql \
+   php-opcache php-pecl-redis php-http php-pdo_mysql php-mysqli php73-php-fpm php73-php-gd \
+   php73-php-mbstring php73-php-mysqlnd 
+
+yum install -y libsemanage-python libselinux-python 
 	
 	}
 
-setup_server_app() {
+ko7(){
+	 /bin/wget https://github.com/koseven/koseven/archive/master.zip
 
-	git clone https://github.com/avvppro/IF-108.git
-	sudo mkdir IF-108/task1/dtester/dt-api/application/logs IF-108/task1/dtester/dt-api/application/cache
-	sudo chmod 766 IF-108/task1/dtester/dt-api/application/logs
-	sudo chmod 766 IF-108/task1/dtester/dt-api/application/cache
-	sudo mv IF-108/task1/dtester /var/www
-	sudo mkdir /etc/httpd/sites-available /etc/httpd/sites-enabled /var/log/httpd/dtester
-	sudo su
-	sudo echo "IncludeOptional sites-enabled/*.conf" >> /etc/httpd/conf/httpd.conf
+	 mkdir /var/www/dtapi
+	 mkdir /var/www/dtapi/api
 
-}
+	 unzip master.zip
+	 mv -f ./koseven-master/* /var/www/dtapi/api
+
+	 git clone https://github.com/yurkovskiy/dtapi
+
+	 yes|cp -fr ./dtapi/* /var/www/dtapi/api
+
+	 cp ./dtapi/.htaccess /var/www/dtapi/api/.htaccess
+
+	 sed -i -e "s|'base_url'   => '/',|'base_url'   => '/api/',|g"  /var/www/dtapi/api/application/bootstrap.php
+	sed -i -e "s|RewriteBase /|RewriteBase /api/|g"  /var/www/dtapi/api/.htaccess
+	sed -i -e "s|PDO_MySQL|PDO|g"  /var/www/dtapi/api/application/config/database.php
+	sed -i -e "s|localhost;dbname=dtapi2|192.168.63.10;dbname=dtapi|g"  /var/www/dtapi/api/application/config/database.php
+
+	cp /var/www/dtapi/api/public/index.php /var/www/dtapi/api/index.php
+
+	}
 
 setup_virtual_host() {
-	sudo cat <<_EOF > /etc/httpd/sites-available/dtester.conf
-	<VirtualHost *:80>
-		#    ServerName www.example.com
-		#    ServerAlias example.com
-		DocumentRoot /var/www/dtester
-		ErrorLog /var/log/httpd/dtester/error.log
-		CustomLog /var/log/httpd/dtester/requests.log combined
-		<Directory /var/www/dtester/>
-				AllowOverride All
-		</Directory>
-	</VirtualHost>
-_EOF
-	sudo mkdir /var/log/httpd/dtester
-	sudo ln -s /etc/httpd/sites-available/dtester.conf /etc/httpd/sites-enabled/dtester.conf
+cat <<EOF > /etc/httpd/conf.d/dtapi.conf
+<VirtualHost *:80>
+	DocumentRoot /var/www/dtapi
+	ErrorLog /var/log/httpd/dtapi_error.log
+	CustomLog /var/log/httpd/dtapi_requests.log combined
+</VirtualHost>
+EOF
+
+	chown apache:apache /var/www/ -R
+	chmod 777 -R /var/www/
 	systemctl restart httpd
-	}
+}
 
 
 
 install_app
-setup_server_app
+ko7
 setup_virtual_host
